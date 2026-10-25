@@ -3,11 +3,32 @@
   "open": true,
   "theme": "dark",
   "links": [
-    {"n": "Spotify", "h": "NO WAY", "u": "https://open.spotify.com/track/5Up0KGnGXDTjtRSn4wJrud"},
-    {"n": "SoundCloud", "h": "Sunset in Pattaya", "u": "https://soundcloud.com/kloznngotthishit/sunset-in-pattaya-kloznn"},
-    {"n": "YouTube", "h": "@kimyprettyboy", "u": "https://youtube.com/@kimyprettyboy"},
-    {"n": "Instagram", "h": "@kloznnboii_", "u": "https://www.instagram.com/kloznnboii_/"}
+    {
+      "n": "Spotify",
+      "h": "NO WAY",
+      "u": "https://open.spotify.com/track/5Up0KGnGXDTjtRSn4wJrud"
+    },
+    {
+      "n": "SoundCloud",
+      "h": "Sunset in Pattaya",
+      "u": "https://soundcloud.com/kloznngotthishit/sunset-in-pattaya-kloznn"
+    },
+    {
+      "n": "YouTube",
+      "h": "@kimyprettyboy",
+      "u": "https://youtube.com/@kimyprettyboy"
+    },
+    {
+      "n": "Instagram",
+      "h": "@kloznnboii_",
+      "u": "https://www.instagram.com/kloznnboii_/"
+    }
   ],
-  "tracks": [],
+  "tracks": [
+    {
+      "t": "ทำนองนั้น any",
+      "u": "audio/any.mp3"
+    }
+  ],
   "video": ""
 }
