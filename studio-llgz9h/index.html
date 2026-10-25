@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>KLOZNN studio</title>
+<style>
+:root{color-scheme:dark;--bg:#14112A;--ink:#ECEAFB;--mute:#9A96BC;--line:#2E2A55;--acc:#7566FF}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 20px 96px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+h2{font-size:18px;margin:36px 0 10px}
+.m{color:var(--mute);font-size:14px;margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px}
+input,select{width:100%;font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+input[type=checkbox]{width:auto}
+input[type=file]{padding:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.row>input{flex:1 1 140px;width:auto}
+button{font:inherit;font-weight:600;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+button.main{background:var(--acc);border-color:var(--acc);color:#fff}
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg);border-top:1px solid var(--line);font-size:14px}
+#say{color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+a{color:var(--acc)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>KLOZNN studio</h1>
+  <p class="m">Edits are saved straight to your GitHub repo. The public site updates 1 to 2 minutes after each save.</p>
+
+  <section id="setup">
+    <h2>Connect</h2>
+    <p class="m">Create a fine-grained token at GitHub &gt; Settings &gt; Developer settings &gt; Personal access tokens. Limit it to this one repo with Contents set to read and write. The token stays in this browser and is only sent to api.github.com.</p>
+    <div class="row"><input id="go" placeholder="GitHub username" aria-label="GitHub username"><input id="gr" placeholder="Repo name" aria-label="Repo name"><input id="gb" placeholder="Branch" value="main" aria-label="Branch"></div>
+    <input id="gt" type="password" placeholder="Token" aria-label="Token" autocomplete="off">
+    <p style="margin-top:12px"><button class="main" id="go-btn">Connect</button></p>
+  </section>
+
+  <section id="ed" hidden>
+    <h2>Basics</h2>
+    <label for="tag">Tagline</label><input id="tag">
+    <label><input type="checkbox" id="open"> Open for collabs</label>
+    <label for="theme">Theme</label>
+    <select id="theme"><option value="">Auto</option><option value="dark">Dark</option><option value="light">Light</option></select>
+
+    <h2>Links</h2>
+    <div id="links"></div>
+    <button id="add-link">Add link</button>
+
+    <h2>New release</h2>
+    <p class="m">Shows as a featured card on the site for 3 days, then disappears by itself. Now: <span id="rel">none</span></p>
+    <div class="row"><input id="rt" placeholder="Title"><input id="ru" placeholder="YouTube, SoundCloud or Spotify link"></div>
+    <button class="main" id="rel-post">Post release</button> <button id="rel-clear">Clear</button>
+
+    <h2>Tracks</h2>
+    <p class="m">Upload mp3 files. Keep each under about 25 MB.</p>
+    <div id="tracks"></div>
+    <input type="file" id="fa" accept="audio/*" multiple>
+
+    <h2>Background video</h2>
+    <p class="m">Now: <span id="vid">none</span>. Short loop, mp4 or webm, under about 25 MB. Site colors are re-sampled from it.</p>
+    <input type="file" id="fv" accept="video/*"> <p style="margin-top:8px"><button id="vid-clear">Remove video</button></p>
+
+    <h2>Account</h2>
+    <p class="m"><a id="view" href="../" target="_blank" rel="noopener">Open the public site</a></p>
+    <button id="out">Disconnect</button>
+  </section>
+</main>
+<div class="bar" id="bar" hidden><span id="say">Ready</span><button class="main" id="save">Save changes</button></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY='kloznn-studio';
+const guess=()=>{const m=location.hostname.match(/^(.+)\.github\.io$/),p=location.pathname.split('/')[1];return{o:m?m[1]:'',r:m&&p&&!/^studio/.test(p)?p:'',b:'main',t:''}};
+let G=null;try{G=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
+G=G||guess();
+let C={},R=null;const sha={};
+const say=t=>$('#say').textContent=t;
+
+async function api(path,opt={}){
+  const r=await fetch(`https://api.github.com/repos/${G.o}/${G.r}/contents/${path}`+(opt.method==='PUT'?'':`?ref=${encodeURIComponent(G.b)}`),
+    {...opt,headers:{Authorization:'Bearer '+G.t,Accept:'application/vnd.github+json','Content-Type':'application/json'}});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error((await r.json().catch(()=>({}))).message||('GitHub error '+r.status));
+  return r.json()}
+const b64=u8=>{let s='';for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s)};
+const encJson=o=>b64(new TextEncoder().encode(JSON.stringify(o,null,2)+'\n'));
+async function rd(p){const j=await api(p);if(!j)return null;sha[p]=j.sha;
+  try{return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(j.content.replace(/\n/g,'')),c=>c.charCodeAt(0))))}catch(e){return null}}
+async function wr(p,content,msg){
+  if(!(p in sha)){const j=await api(p);sha[p]=j?j.sha:undefined}
+  const j=await api(p,{method:'PUT',body:JSON.stringify({message:msg,content,branch:G.b,sha:sha[p]})});
+  sha[p]=j.content.sha}
+
+function draw(){
+  $('#tag').value=C.tag||'';$('#open').checked=C.open!==false;$('#theme').value=C.theme||'';
+  $('#links').innerHTML=(C.links||[]).map((l,i)=>`<div class="row"><input data-l="${i}" data-f="n" value="${E(l.n)}" placeholder="Name" aria-label="Name"><input data-l="${i}" data-f="h" value="${E(l.h)}" placeholder="Handle" aria-label="Handle"><input data-l="${i}" data-f="u" value="${E(l.u)}" placeholder="https://" aria-label="Link"><button data-rl="${i}">Remove</button></div>`).join('');
+  $('#tracks').innerHTML=(C.tracks||[]).map((k,i)=>`<div class="row"><input data-t="${i}" value="${E(k.t)}" aria-label="Track title"><span class="m" style="margin:0">${E(k.u)}</span><button data-rt="${i}">Remove</button></div>`).join('')||'<p class="m">No tracks yet.</p>';
+  $('#vid').textContent=C.video||'none';
+  $('#rel').textContent=R&&R.t?`${R.t} (posted ${new Date(R.at).toLocaleString()})`:'none'}
+
+async function load(){
+  say('Loading');
+  C=(await rd('config.json'))||{};R=await rd('releases.json');
+  C.links=C.links||[];C.tracks=C.tracks||[];
+  $('#setup').hidden=true;$('#ed').hidden=false;$('#bar').hidden=false;
+  draw();say('Loaded')}
+
+function cfg(){C.tag=$('#tag').value;C.open=$('#open').checked;C.theme=$('#theme').value}
+async function save(msg='Update site'){cfg();say('Saving');
+  try{await wr('config.json',encJson(C),msg);say('Saved. The site updates in 1 to 2 minutes.')}
+  catch(e){say('Failed: '+e.message)}}
+
+$('#go-btn').onclick=async()=>{
+  G={o:$('#go').value.trim(),r:$('#gr').value.trim(),b:$('#gb').value.trim()||'main',t:$('#gt').value.trim()};
+  try{await load();localStorage.setItem(KEY,JSON.stringify(G))}
+  catch(e){alert('Could not connect: '+e.message)}};
+$('#out').onclick=()=>{localStorage.removeItem(KEY);location.reload()};
+$('#save').onclick=()=>save();
+$('#add-link').onclick=()=>{cfg();C.links.push({n:'',h:'',u:''});draw()};
+
+$('#ed').addEventListener('input',e=>{const d=e.target.dataset;
+  if(d.l!==undefined)C.links[d.l][d.f]=e.target.value;
+  if(d.t!==undefined)C.tracks[d.t].t=e.target.value});
+$('#ed').addEventListener('click',e=>{const d=e.target.dataset;
+  if(d.rl!==undefined){cfg();C.links.splice(+d.rl,1);draw()}
+  if(d.rt!==undefined){cfg();C.tracks.splice(+d.rt,1);draw()}});
+
+$('#rel-post').onclick=async()=>{
+  const t=$('#rt').value.trim();let u=$('#ru').value.trim();if(!t||!u)return;
+  try{const x=new URL(/^https?:\/\//i.test(u)?u:'https://'+u);['si','utm_source','utm_medium','utm_campaign','feature'].forEach(p=>x.searchParams.delete(p));u=x.toString()}catch(e){return say('That link does not look right')}
+  say('Posting');R={t,u,at:Date.now()};
+  try{await wr('releases.json',encJson(R),'Post release');$('#rt').value=$('#ru').value='';draw();say('Posted. It shows for 3 days.')}
+  catch(e){say('Failed: '+e.message)}};
+$('#rel-clear').onclick=async()=>{
+  say('Clearing');R=null;
+  try{await wr('releases.json',b64(new TextEncoder().encode('null\n')),'Clear release');draw();say('Cleared')}
+  catch(e){say('Failed: '+e.message)}};
+
+const safe=n=>n.toLowerCase().replace(/[^a-z0-9.\-_]+/g,'-').replace(/^-+/,'');
+async function put(dir,f){
+  if(f.size>90*1048576)throw new Error(f.name+' is over 90 MB');
+  const p=dir+'/'+safe(f.name);say('Uploading '+f.name);
+  await wr(p,b64(new Uint8Array(await f.arrayBuffer())),'Add '+p);return p}
+
+$('#fa').onchange=async e=>{const fs=[...e.target.files];e.target.value='';cfg();
+  try{for(const f of fs){const p=await put('audio',f);if(!C.tracks.some(k=>k.u===p))C.tracks.push({t:f.name.replace(/\.[^.]+$/,''),u:p})}
+    draw();await save('Add tracks')}
+  catch(x){say('Failed: '+x.message)}};
+$('#fv').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;cfg();
+  try{C.video=await put('video',f);delete C.pal;draw();await save('Set background video')}
+  catch(x){say('Failed: '+x.message)}};
+$('#vid-clear').onclick=async()=>{cfg();C.video='';delete C.pal;draw();await save('Remove background video')};
+
+if(G.t&&G.o&&G.r)load().catch(e=>{$('#setup').hidden=false;$('#ed').hidden=true;$('#bar').hidden=true;$('#go').value=G.o;$('#gr').value=G.r;$('#gb').value=G.b;say(e.message)});
+else{$('#go').value=G.o;$('#gr').value=G.r;$('#gb').value=G.b}
+</script>
+</body>
+</html>
