@@ -61,6 +61,11 @@ a{color:var(--acc)}
     <div id="tracks"></div>
     <input type="file" id="fa" accept="audio/*" multiple>
 
+    <h2>Visuals</h2>
+    <p class="m">Images for the gallery. The first one is shown large. If empty, the site shows generated art. Images are resized to 1600 px and saved as JPEG.</p>
+    <div id="imgs"></div>
+    <input type="file" id="fi" accept="image/*" multiple>
+
     <h2>Background video</h2>
     <p class="m">Now: <span id="vid">none</span>. Short loop, mp4 or webm, under about 25 MB. Site colors are re-sampled from it.</p>
     <input type="file" id="fv" accept="video/*"> <p style="margin-top:8px"><button id="vid-clear">Remove video</button></p>
@@ -101,13 +106,14 @@ function draw(){
   $('#tag').value=C.tag||'';$('#open').checked=C.open!==false;$('#theme').value=C.theme||'';
   $('#links').innerHTML=(C.links||[]).map((l,i)=>`<div class="row"><input data-l="${i}" data-f="n" value="${E(l.n)}" placeholder="Name" aria-label="Name"><input data-l="${i}" data-f="h" value="${E(l.h)}" placeholder="Handle" aria-label="Handle"><input data-l="${i}" data-f="u" value="${E(l.u)}" placeholder="https://" aria-label="Link"><button data-rl="${i}">Remove</button></div>`).join('');
   $('#tracks').innerHTML=(C.tracks||[]).map((k,i)=>`<div class="row"><input data-t="${i}" value="${E(k.t)}" aria-label="Track title"><span class="m" style="margin:0">${E(k.u)}</span><button data-rt="${i}">Remove</button></div>`).join('')||'<p class="m">No tracks yet.</p>';
+  $('#imgs').innerHTML=(C.images||[]).map((u,i)=>`<div class="row"><span class="m" style="margin:0;flex:1">${E(u)}</span><button data-iu="${i}">Up</button><button data-id="${i}">Down</button><button data-ir="${i}">Remove</button></div>`).join('')||'<p class="m">No images yet.</p>';
   $('#vid').textContent=C.video||'none';
   $('#rel').textContent=R&&R.t?`${R.t} (posted ${new Date(R.at).toLocaleString()})`:'none'}
 
 async function load(){
   say('Loading');
   C=(await rd('config.json'))||{};R=await rd('releases.json');
-  C.links=C.links||[];C.tracks=C.tracks||[];
+  C.links=C.links||[];C.tracks=C.tracks||[];C.images=C.images||[];
   $('#setup').hidden=true;$('#ed').hidden=false;$('#bar').hidden=false;
   draw();say('Loaded')}
 
@@ -129,7 +135,11 @@ $('#ed').addEventListener('input',e=>{const d=e.target.dataset;
   if(d.t!==undefined)C.tracks[d.t].t=e.target.value});
 $('#ed').addEventListener('click',e=>{const d=e.target.dataset;
   if(d.rl!==undefined){cfg();C.links.splice(+d.rl,1);draw()}
-  if(d.rt!==undefined){cfg();C.tracks.splice(+d.rt,1);draw()}});
+  if(d.rt!==undefined){cfg();C.tracks.splice(+d.rt,1);draw()}
+  const m=C.images;
+  if(d.ir!==undefined){cfg();m.splice(+d.ir,1);draw()}
+  if(d.iu!==undefined&&+d.iu>0){cfg();const i=+d.iu;[m[i-1],m[i]]=[m[i],m[i-1]];draw()}
+  if(d.id!==undefined&&+d.id<m.length-1){cfg();const i=+d.id;[m[i+1],m[i]]=[m[i],m[i+1]];draw()}});
 
 $('#rel-post').onclick=async()=>{
   const t=$('#rt').value.trim();let u=$('#ru').value.trim();if(!t||!u)return;
@@ -154,6 +164,16 @@ $('#fa').onchange=async e=>{const fs=[...e.target.files];e.target.value='';cfg()
   catch(x){say('Failed: '+x.message)}};
 $('#fv').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;cfg();
   try{C.video=await put('video',f);delete C.pal;draw();await save('Set background video')}
+  catch(x){say('Failed: '+x.message)}};
+async function shrinkImg(f){
+  const u=URL.createObjectURL(f);
+  const im=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('cannot read '+f.name));i.src=u});
+  const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');
+  c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
+  const b=await new Promise(ok=>c.toBlob(ok,'image/jpeg',.85));
+  return new File([b],f.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'})}
+$('#fi').onchange=async e=>{const fs=[...e.target.files];e.target.value='';cfg();C.images=C.images||[];
+  try{for(const f of fs){const p=await put('images',await shrinkImg(f));if(!C.images.includes(p))C.images.push(p)}draw();await save('Add images')}
   catch(x){say('Failed: '+x.message)}};
 $('#vid-clear').onclick=async()=>{cfg();C.video='';delete C.pal;draw();await save('Remove background video')};
 

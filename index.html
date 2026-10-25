@@ -170,7 +170,8 @@ function render(){
   $('#links').innerHTML=S.links.map((l,i)=>editing
     ?`<div class="erow"><input data-i="${i}" data-f="n" value="${E(l.n)}" placeholder="Name" aria-label="Link name"><input data-i="${i}" data-f="h" value="${E(l.h)}" placeholder="Handle" aria-label="Handle"><input class="u" data-i="${i}" data-f="u" value="${E(l.u)}" placeholder="https://" aria-label="Link address"><button class="btn" data-rm="${i}">Remove</button></div>`
     :`<a class="row" href="${E(url(l.u))}" target="_blank" rel="noopener"><b>${E(l.n)}</b><i>${E(l.h)}</i></a>`).join('');
-  $('#grid').innerHTML=Array.from({length:7},(_,i)=>`<button class="tile" data-t="${i}" aria-label="${editing?'Replace':'Open'} artwork ${i+1}">${S.imgs[i]?`<img src="${S.imgs[i]}" alt="">`:art(i)}</button>`).join('');
+  const IM=Array.isArray(S.images)&&S.images.length?S.images:null;
+  $('#grid').innerHTML=Array.from({length:IM?IM.length:7},(_,i)=>{const src=IM?IM[i]:S.imgs[i];return `<button class="tile" data-t="${i}" aria-label="Open artwork ${i+1}">${src?`<img src="${E(src)}" alt="">`:art(i)}</button>`}).join('');
   $('#th').textContent='Theme: '+(S.theme||'auto');
   document.body.classList.toggle('editing',editing);
   $('#ed').textContent=editing?'Done':'Edit';
